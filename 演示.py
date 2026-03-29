@@ -103,10 +103,24 @@ VK_KEYS = {
     # 编辑键
     'INS': 0x2D, 'DEL': 0x2E, 'HOME': 0x24, 'END': 0x23,
     'PGUP': 0x21, 'PGDN': 0x22,
+    'PRTSC': 0x2C, 'SCRLOCK': 0x91, 'PAUSE': 0x13,
     # 符号
     'MINUS': 0xBD, 'EQUAL': 0xBB, 'LBRACKET': 0xDB, 'RBRACKET': 0xDD,
     'SEMICOLON': 0xBA, 'QUOTE': 0xDE, 'BACKSLASH': 0xDC, 'COMMA': 0xBC,
     'PERIOD': 0xBE, 'SLASH': 0xBF, 'GRAVE': 0xC0,
+    # 小键盘
+    'NUM0': 0x60, 'NUM1': 0x61, 'NUM2': 0x62, 'NUM3': 0x63, 'NUM4': 0x64,
+    'NUM5': 0x65, 'NUM6': 0x66, 'NUM7': 0x67, 'NUM8': 0x68, 'NUM9': 0x69,
+    'NUM*': 0x6A, 'NUM+': 0x6B, 'NUM-': 0x6D, 'NUM.': 0x6E, 'NUM/': 0x6F,
+    'NUMLOCK': 0x90,
+    # 媒体键 (多媒体键盘)
+    'VOL_MUTE': 0xAD, 'VOL_DOWN': 0xAE, 'VOL_UP': 0xAF,
+    'MEDIA_NEXT': 0xB0, 'MEDIA_PREV': 0xB1, 'MEDIA_STOP': 0xB2, 'MEDIA_PLAY': 0xB3,
+    # 浏览器键
+    'BROWSER_BACK': 0xA6, 'BROWSER_FORWARD': 0xA7, 'BROWSER_REFRESH': 0xA8,
+    'BROWSER_STOP': 0xA9, 'BROWSER_SEARCH': 0xAA, 'BROWSER_FAVORITES': 0xAB, 'BROWSER_HOME': 0xAC,
+    # 应用键
+    'MAIL': 0xB4, 'MEDIA_SELECT': 0xB5, 'APP1': 0xB6, 'APP2': 0xB7,
 }
 
 KEYEVENTF_EXTENDEDKEY = 0x0001
@@ -334,34 +348,14 @@ def save_config(config):
 
 
 class VirtualKeyboard(tk.Toplevel):
-    """虚拟键盘弹窗"""
+    """虚拟键盘弹窗 - 类似xpadder的键盘布局"""
     def __init__(self, parent, callback):
         super().__init__(parent)
         self.title("选择按键")
-        self.geometry("800x350")
+        self.geometry("900x600")
         self.resizable(False, False)
         self.callback = callback
         self.selected_key = None
-        
-        # 键盘布局定义
-        self.keyboard_layout = [
-            ['ESC', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'],
-            ['`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'BACK'],
-            ['TAB', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']', '\\'],
-            ['CAPS', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', "'", 'ENTER'],
-            ['SHIFT', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.', '/', 'SHIFT'],
-            ['CTRL', 'WIN', 'ALT', 'SPACE', 'ALT', 'MENU', 'CTRL']
-        ]
-        
-        # 按键宽度配置
-        self.key_widths = {
-            'ESC': 6, 'F1': 6, 'F2': 6, 'F3': 6, 'F4': 6, 'F5': 6, 'F6': 6, 'F7': 6, 'F8': 6, 'F9': 6, 'F10': 6, 'F11': 6, 'F12': 6,
-            '`': 4, '1': 4, '2': 4, '3': 4, '4': 4, '5': 4, '6': 4, '7': 4, '8': 4, '9': 4, '0': 4, '-': 4, '=': 4, 'BACK': 8,
-            'TAB': 6, 'Q': 4, 'W': 4, 'E': 4, 'R': 4, 'T': 4, 'Y': 4, 'U': 4, 'I': 4, 'O': 4, 'P': 4, '[': 4, ']': 4, '\\': 4,
-            'CAPS': 7, 'A': 4, 'S': 4, 'D': 4, 'F': 4, 'G': 4, 'H': 4, 'J': 4, 'K': 4, 'L': 4, ';': 4, "'": 4, 'ENTER': 9,
-            'SHIFT': 9, 'Z': 4, 'X': 4, 'C': 4, 'V': 4, 'B': 4, 'N': 4, 'M': 4, ',': 4, '.': 4, '/': 4, 'SHIFT2': 9,
-            'CTRL': 6, 'WIN': 6, 'ALT': 6, 'SPACE': 25, 'ALT2': 6, 'MENU': 6, 'CTRL2': 6
-        }
         
         self.create_keyboard()
         
@@ -377,61 +371,198 @@ class VirtualKeyboard(tk.Toplevel):
         self.geometry(f"+{x}+{y}")
     
     def create_keyboard(self):
-        """创建键盘布局"""
-        main_frame = ttk.Frame(self, padding=10)
-        main_frame.pack(fill="both", expand=True)
+        """创建完整键盘布局"""
+        # 创建画布和滚动条
+        canvas = tk.Canvas(self)
+        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        self.main_frame = ttk.Frame(canvas)
+        
+        self.main_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=self.main_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
         
         # 标题
-        ttk.Label(main_frame, text="点击选择要模拟的按键", font=("黑体", 12, "bold")).pack(pady=(0, 10))
+        ttk.Label(self.main_frame, text="点击选择要模拟的按键", font=("黑体", 14, "bold")).pack(pady=10)
         
-        # 键盘区域
-        keyboard_frame = ttk.Frame(main_frame)
-        keyboard_frame.pack()
+        # 创建所有按键区域
+        self.create_media_keys()
+        self.create_main_keyboard()
+        self.create_numpad()
+        self.create_function_keys()
         
-        for row_idx, row in enumerate(self.keyboard_layout):
-            row_frame = ttk.Frame(keyboard_frame)
-            row_frame.pack(pady=2)
-            
-            for key in row:
-                # 处理重复的按键名称
-                key_id = key
-                if key == 'SHIFT' and row_idx == 4:
-                    key_id = 'SHIFT2'
-                elif key == 'ALT' and row_idx == 5:
-                    key_id = 'ALT2'
-                elif key == 'CTRL' and row_idx == 5:
-                    key_id = 'CTRL2'
-                
-                width = self.key_widths.get(key_id, 4)
-                
-                btn = tk.Button(
-                    row_frame, 
-                    text=key, 
-                    width=width, 
-                    height=1,
-                    font=("Arial", 8, "bold"),
-                    command=lambda k=key: self.on_key_click(k)
-                )
-                btn.pack(side="left", padx=1)
+        # 取消按钮
+        ttk.Button(self.main_frame, text="取消", command=self.destroy).pack(pady=15)
+    
+    def create_key_button(self, parent, text, key_code, width=6, bg=None):
+        """创建按键按钮"""
+        btn = tk.Button(
+            parent,
+            text=text,
+            width=width,
+            height=1,
+            font=("Arial", 8, "bold"),
+            bg=bg or "#f0f0f0",
+            command=lambda k=key_code: self.on_key_click(k)
+        )
+        return btn
+    
+    def create_media_keys(self):
+        """创建媒体控制键区域（顶部）"""
+        media_frame = ttk.LabelFrame(self.main_frame, text="媒体控制键", padding=5)
+        media_frame.pack(fill="x", padx=10, pady=5)
+        
+        # 第一行：媒体播放控制
+        row1 = ttk.Frame(media_frame)
+        row1.pack(pady=2)
+        
+        self.create_key_button(row1, "上一首", "MEDIA_PREV", 8).pack(side="left", padx=2)
+        self.create_key_button(row1, "播放/暂停", "MEDIA_PLAY", 10).pack(side="left", padx=2)
+        self.create_key_button(row1, "停止", "MEDIA_STOP", 8).pack(side="left", padx=2)
+        self.create_key_button(row1, "下一首", "MEDIA_NEXT", 8).pack(side="left", padx=2)
+        
+        # 第二行：音量控制
+        row2 = ttk.Frame(media_frame)
+        row2.pack(pady=2)
+        
+        self.create_key_button(row2, "静音", "VOL_MUTE", 8).pack(side="left", padx=2)
+        self.create_key_button(row2, "音量-", "VOL_DOWN", 8).pack(side="left", padx=2)
+        self.create_key_button(row2, "音量+", "VOL_UP", 8).pack(side="left", padx=2)
+        
+        # 第三行：浏览器控制
+        row3 = ttk.Frame(media_frame)
+        row3.pack(pady=2)
+        
+        self.create_key_button(row3, "后退", "BROWSER_BACK", 8).pack(side="left", padx=2)
+        self.create_key_button(row3, "前进", "BROWSER_FORWARD", 8).pack(side="left", padx=2)
+        self.create_key_button(row3, "刷新", "BROWSER_REFRESH", 8).pack(side="left", padx=2)
+        self.create_key_button(row3, "停止", "BROWSER_STOP", 8).pack(side="left", padx=2)
+        self.create_key_button(row3, "搜索", "BROWSER_SEARCH", 8).pack(side="left", padx=2)
+        self.create_key_button(row3, "主页", "BROWSER_HOME", 8).pack(side="left", padx=2)
+    
+    def create_main_keyboard(self):
+        """创建主键盘区域"""
+        main_frame = ttk.LabelFrame(self.main_frame, text="主键盘", padding=5)
+        main_frame.pack(fill="x", padx=10, pady=5)
+        
+        # 键盘布局
+        keyboard_rows = [
+            # 第一行：ESC和F键
+            [
+                ("ESC", "ESC", 6),
+                ("F1", "F1", 6), ("F2", "F2", 6), ("F3", "F3", 6), ("F4", "F4", 6),
+                ("F5", "F5", 6), ("F6", "F6", 6), ("F7", "F7", 6), ("F8", "F8", 6),
+                ("F9", "F9", 6), ("F10", "F10", 6), ("F11", "F11", 6), ("F12", "F12", 6),
+            ],
+            # 第二行：数字键
+            [
+                ("`", "GRAVE", 5), ("1", "1", 5), ("2", "2", 5), ("3", "3", 5), ("4", "4", 5),
+                ("5", "5", 5), ("6", "6", 5), ("7", "7", 5), ("8", "8", 5), ("9", "9", 5),
+                ("0", "0", 5), ("-", "MINUS", 5), ("=", "EQUAL", 5), ("Back", "BACK", 8),
+            ],
+            # 第三行：QWERTY
+            [
+                ("Tab", "TAB", 8), ("Q", "Q", 5), ("W", "W", 5), ("E", "E", 5), ("R", "R", 5),
+                ("T", "T", 5), ("Y", "Y", 5), ("U", "U", 5), ("I", "I", 5), ("O", "O", 5),
+                ("P", "P", 5), ("[", "LBRACKET", 5), ("]", "RBRACKET", 5), ("\\", "BACKSLASH", 7),
+            ],
+            # 第四行：ASDF
+            [
+                ("Caps", "CAPS", 9), ("A", "A", 5), ("S", "S", 5), ("D", "D", 5), ("F", "F", 5),
+                ("G", "G", 5), ("H", "H", 5), ("J", "J", 5), ("K", "K", 5), ("L", "L", 5),
+                (";", "SEMICOLON", 5), ("'", "QUOTE", 5), ("Enter", "ENTER", 11),
+            ],
+            # 第五行：ZXCV
+            [
+                ("Shift", "SHIFT", 11), ("Z", "Z", 5), ("X", "X", 5), ("C", "C", 5), ("V", "V", 5),
+                ("B", "B", 5), ("N", "N", 5), ("M", "M", 5), (",", "COMMA", 5), (".", "PERIOD", 5),
+                ("/", "SLASH", 5), ("Shift", "SHIFT", 13),
+            ],
+            # 第六行：控制键
+            [
+                ("Ctrl", "CTRL", 8), ("Win", "WIN", 7), ("Alt", "ALT", 7),
+                ("Space", "SPACE", 30),
+                ("Alt", "ALT", 7), ("Win", "WIN", 7), ("Menu", "MENU", 7), ("Ctrl", "CTRL", 8),
+            ],
+        ]
+        
+        for row in keyboard_rows:
+            row_frame = ttk.Frame(main_frame)
+            row_frame.pack(pady=1)
+            for text, key, width in row:
+                self.create_key_button(row_frame, text, key, width).pack(side="left", padx=1)
+    
+    def create_numpad(self):
+        """创建小键盘区域"""
+        numpad_frame = ttk.LabelFrame(self.main_frame, text="小键盘", padding=5)
+        numpad_frame.pack(fill="x", padx=10, pady=5)
+        
+        # 小键盘布局
+        numpad_layout = [
+            [("NumLk", "NUMLOCK", 8), ("/", "NUM/", 8), ("*", "NUM*", 8), ("-", "NUM-", 8)],
+            [("7", "NUM7", 8), ("8", "NUM8", 8), ("9", "NUM9", 8), ("+", "NUM+", 8)],
+            [("4", "NUM4", 8), ("5", "NUM5", 8), ("6", "NUM6", 8), ("Enter", "ENTER", 8)],
+            [("1", "NUM1", 8), ("2", "NUM2", 8), ("3", "NUM3", 8)],
+            [("0", "NUM0", 17), (".", "NUM.", 8)],
+        ]
+        
+        for row in numpad_layout:
+            row_frame = ttk.Frame(numpad_frame)
+            row_frame.pack(pady=1)
+            for text, key, width in row:
+                self.create_key_button(row_frame, text, key, width).pack(side="left", padx=1)
+    
+    def create_function_keys(self):
+        """创建功能键和编辑键区域"""
+        func_frame = ttk.LabelFrame(self.main_frame, text="功能键和编辑键", padding=5)
+        func_frame.pack(fill="x", padx=10, pady=5)
+        
+        # 编辑键区域
+        edit_frame = ttk.Frame(func_frame)
+        edit_frame.pack(pady=2)
+        
+        # 第一行：Print Screen, Scroll Lock, Pause
+        row1 = ttk.Frame(edit_frame)
+        row1.pack(pady=2)
+        self.create_key_button(row1, "PrtSc", "PRTSC", 8).pack(side="left", padx=2)
+        self.create_key_button(row1, "ScrLk", "SCRLOCK", 8).pack(side="left", padx=2)
+        self.create_key_button(row1, "Pause", "PAUSE", 8).pack(side="left", padx=2)
+        
+        # 第二行：Insert, Home, Page Up
+        row2 = ttk.Frame(edit_frame)
+        row2.pack(pady=2)
+        self.create_key_button(row2, "Ins", "INS", 8).pack(side="left", padx=2)
+        self.create_key_button(row2, "Home", "HOME", 8).pack(side="left", padx=2)
+        self.create_key_button(row2, "PgUp", "PGUP", 8).pack(side="left", padx=2)
+        
+        # 第三行：Delete, End, Page Down
+        row3 = ttk.Frame(edit_frame)
+        row3.pack(pady=2)
+        self.create_key_button(row3, "Del", "DEL", 8).pack(side="left", padx=2)
+        self.create_key_button(row3, "End", "END", 8).pack(side="left", padx=2)
+        self.create_key_button(row3, "PgDn", "PGDN", 8).pack(side="left", padx=2)
         
         # 方向键区域
-        arrow_frame = ttk.LabelFrame(main_frame, text="方向键", padding=5)
-        arrow_frame.pack(pady=10)
+        arrow_frame = ttk.Frame(func_frame)
+        arrow_frame.pack(pady=5)
         
         # 上方向键
         up_frame = ttk.Frame(arrow_frame)
         up_frame.pack()
-        tk.Button(up_frame, text="UP", width=6, command=lambda: self.on_key_click("UP")).pack()
+        self.create_key_button(up_frame, "↑", "UP", 8).pack()
         
         # 下方向键行
         down_frame = ttk.Frame(arrow_frame)
         down_frame.pack()
-        tk.Button(down_frame, text="LEFT", width=6, command=lambda: self.on_key_click("LEFT")).pack(side="left", padx=2)
-        tk.Button(down_frame, text="DOWN", width=6, command=lambda: self.on_key_click("DOWN")).pack(side="left", padx=2)
-        tk.Button(down_frame, text="RIGHT", width=6, command=lambda: self.on_key_click("RIGHT")).pack(side="left", padx=2)
-        
-        # 取消按钮
-        ttk.Button(main_frame, text="取消", command=self.destroy).pack(pady=10)
+        self.create_key_button(down_frame, "←", "LEFT", 8).pack(side="left", padx=2)
+        self.create_key_button(down_frame, "↓", "DOWN", 8).pack(side="left", padx=2)
+        self.create_key_button(down_frame, "→", "RIGHT", 8).pack(side="left", padx=2)
     
     def on_key_click(self, key):
         """按键点击处理"""
