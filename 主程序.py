@@ -790,21 +790,28 @@ class App(tk.Tk):
         self.process_highlight_queue()
 
     def gamepad_listener(self):
-        try:
-            get_gamepad()
-            self.gamepad_status_label.config(text="手柄: 已连接", foreground="green")
-        except:
-            self.gamepad_status_label.config(text="手柄: 未连接", foreground="red")
-            return
-        
         long_press_buttons = {}
         left_stick = {"x": 0, "y": 0, "active": False}
         right_stick = {"x": 0, "y": 0, "active": False}
         last_left_stick = {"x": 0, "y": 0, "active": False}
         last_right_stick = {"x": 0, "y": 0, "active": False}
         
+        connected = False
+        
         while self.listening:
             try:
+                if not connected:
+                    try:
+                        get_gamepad()
+                        connected = True
+                        self.gamepad_status_label.config(text="手柄: 已连接", foreground="green")
+                    except:
+                        if connected:
+                            connected = False
+                            self.gamepad_status_label.config(text="手柄: 未连接", foreground="red")
+                        time.sleep(1)
+                        continue
+                
                 events = get_gamepad()
                 for event in events:
                     if event.code in ["ABS_X", "ABS_Y", "ABS_RX", "ABS_RY"]:
@@ -881,8 +888,10 @@ class App(tk.Tk):
                                 self.process_stick_action("ABS_RIGHT_STICK", last_right_stick["x"], last_right_stick["y"])
                 
                 time.sleep(0.005)
-            except:
-                time.sleep(0.005)
+            except Exception as e:
+                connected = False
+                self.gamepad_status_label.config(text="手柄: 未连接", foreground="red")
+                time.sleep(1)
 
     def parse_event(self, event):
         if event.ev_type == "Key":
@@ -1320,7 +1329,14 @@ class App(tk.Tk):
             return True
         EnumWindowsProc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
         ctypes.windll.user32.EnumWindows(EnumWindowsProc(callback), 0)
+        
+        current = self.window_var.get()
         self.window_combo['values'] = windows
+        
+        if current in windows:
+            self.window_var.set(current)
+        else:
+            self.window_var.set("整个屏幕")
 
     def new_profile(self):
         name = f"方案{len(self.profile_combo['values'])}"
