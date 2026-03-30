@@ -20,10 +20,9 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual environments
-venv/
-ENV/
-env/
+# 配置文件（包含用户数据）
+手柄配置.json
+按键方案.json
 
 # IDE
 .vscode/
@@ -32,5 +31,7 @@ env/
 *.swo
 *~
 
-# Project specific
-gamepad_config.json
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini

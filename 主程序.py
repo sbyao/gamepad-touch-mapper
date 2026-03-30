@@ -1,15 +1,16 @@
 """
-游戏手柄触屏映射工具
+游戏手柄触屏映射工具 - 主程序
 
-功能说明:
-- 将游戏手柄按键映射为屏幕触摸操作
-- 支持点击、长按、滑动、滚动等多种操作
-- 支持摇杆作为方向键、模拟摇杆或鼠标模式
-- 可配置屏幕坐标或窗口相对坐标
-- 支持多窗口切换和目标窗口自动激活
+功能：将游戏手柄按键映射为屏幕触摸操作或键盘按键
+核心模块：
+  - 手柄输入检测与处理
+  - 屏幕/窗口坐标映射
+  - 键盘按键模拟（支持组合键）
+  - 虚拟键盘选择界面
+  - 配置保存与加载
 
-作者: sblyao
-版本: 1.0
+作者：sblyao
+版本：1.0
 """
 
 import ctypes
@@ -23,6 +24,13 @@ import threading
 import queue
 from PIL import Image, ImageDraw
 import pystray
+from 虚拟键盘网格布局 import VirtualKeyboard
+
+
+
+
+
+
 
 
 class TOUCHINPUT(ctypes.Structure):
@@ -56,20 +64,6 @@ class MOUSEINPUT(ctypes.Structure):
     ]
 
 
-class INPUT(ctypes.Structure):
-    class _INPUT(ctypes.Union):
-        _fields_ = [
-            ("mi", MOUSEINPUT),
-            ("ki", ctypes.c_ubyte * 28),
-            ("hi", ctypes.c_ubyte * 8)
-        ]
-    _anonymous_ = ("u",)
-    _fields_ = [
-        ("type", ctypes.c_uint),
-        ("u", _INPUT)
-    ]
-
-
 INPUT_MOUSE = 0
 INPUT_KEYBOARD = 1
 MOUSEEVENTF_MOVE = 0x0001
@@ -79,47 +73,35 @@ MOUSEEVENTF_LEFTUP = 0x0004
 MOUSEEVENTF_WHEEL = 0x0800
 WHEEL_DELTA = 120
 
-# 键盘虚拟键码
 VK_KEYS = {
-    # 字母
     'A': 0x41, 'B': 0x42, 'C': 0x43, 'D': 0x44, 'E': 0x45, 'F': 0x46,
     'G': 0x47, 'H': 0x48, 'I': 0x49, 'J': 0x4A, 'K': 0x4B, 'L': 0x4C,
     'M': 0x4D, 'N': 0x4E, 'O': 0x4F, 'P': 0x50, 'Q': 0x51, 'R': 0x52,
     'S': 0x53, 'T': 0x54, 'U': 0x55, 'V': 0x56, 'W': 0x57, 'X': 0x58,
     'Y': 0x59, 'Z': 0x5A,
-    # 数字
     '0': 0x30, '1': 0x31, '2': 0x32, '3': 0x33, '4': 0x34,
     '5': 0x35, '6': 0x36, '7': 0x37, '8': 0x38, '9': 0x39,
-    # 功能键
     'F1': 0x70, 'F2': 0x71, 'F3': 0x72, 'F4': 0x73, 'F5': 0x74,
     'F6': 0x75, 'F7': 0x76, 'F8': 0x77, 'F9': 0x78, 'F10': 0x79,
     'F11': 0x7A, 'F12': 0x7B,
-    # 控制键
     'ESC': 0x1B, 'TAB': 0x09, 'CAPS': 0x14, 'SPACE': 0x20,
     'ENTER': 0x0D, 'BACK': 0x08, 'SHIFT': 0x10, 'CTRL': 0x11,
     'ALT': 0x12, 'WIN': 0x5B, 'MENU': 0x5D,
-    # 方向键
     'UP': 0x26, 'DOWN': 0x28, 'LEFT': 0x25, 'RIGHT': 0x27,
-    # 编辑键
     'INS': 0x2D, 'DEL': 0x2E, 'HOME': 0x24, 'END': 0x23,
     'PGUP': 0x21, 'PGDN': 0x22,
     'PRTSC': 0x2C, 'SCRLOCK': 0x91, 'PAUSE': 0x13,
-    # 符号
     'MINUS': 0xBD, 'EQUAL': 0xBB, 'LBRACKET': 0xDB, 'RBRACKET': 0xDD,
     'SEMICOLON': 0xBA, 'QUOTE': 0xDE, 'BACKSLASH': 0xDC, 'COMMA': 0xBC,
     'PERIOD': 0xBE, 'SLASH': 0xBF, 'GRAVE': 0xC0,
-    # 小键盘
     'NUM0': 0x60, 'NUM1': 0x61, 'NUM2': 0x62, 'NUM3': 0x63, 'NUM4': 0x64,
     'NUM5': 0x65, 'NUM6': 0x66, 'NUM7': 0x67, 'NUM8': 0x68, 'NUM9': 0x69,
     'NUM*': 0x6A, 'NUM+': 0x6B, 'NUM-': 0x6D, 'NUM.': 0x6E, 'NUM/': 0x6F,
     'NUMLOCK': 0x90,
-    # 媒体键 (多媒体键盘)
     'VOL_MUTE': 0xAD, 'VOL_DOWN': 0xAE, 'VOL_UP': 0xAF,
     'MEDIA_NEXT': 0xB0, 'MEDIA_PREV': 0xB1, 'MEDIA_STOP': 0xB2, 'MEDIA_PLAY': 0xB3,
-    # 浏览器键
     'BROWSER_BACK': 0xA6, 'BROWSER_FORWARD': 0xA7, 'BROWSER_REFRESH': 0xA8,
     'BROWSER_STOP': 0xA9, 'BROWSER_SEARCH': 0xAA, 'BROWSER_FAVORITES': 0xAB, 'BROWSER_HOME': 0xAC,
-    # 应用键
     'MAIL': 0xB4, 'MEDIA_SELECT': 0xB5, 'APP1': 0xB6, 'APP2': 0xB7,
 }
 
@@ -167,26 +149,24 @@ def touch_click(x, y):
     send_mouse_click(x, y)
 
 
+class KEYBDINPUT(ctypes.Structure):
+    _fields_ = [
+        ("wVk", ctypes.c_ushort),
+        ("wScan", ctypes.c_ushort),
+        ("dwFlags", ctypes.c_uint),
+        ("time", ctypes.c_uint),
+        ("dwExtraInfo", ctypes.c_void_p)
+    ]
+
+class INPUT_I(ctypes.Union):
+    _fields_ = [("ki", KEYBDINPUT), ("mi", MOUSEINPUT), ("hi", ctypes.c_ubyte * 8)]
+
+class INPUT(ctypes.Structure):
+    _anonymous_ = ("i",)
+    _fields_ = [("type", ctypes.c_uint), ("i", INPUT_I)]
+
+
 def send_key_press(key_code):
-    """模拟键盘按键按下和释放"""
-    # 键盘输入结构
-    class KEYBDINPUT(ctypes.Structure):
-        _fields_ = [
-            ("wVk", ctypes.c_ushort),
-            ("wScan", ctypes.c_ushort),
-            ("dwFlags", ctypes.c_uint),
-            ("time", ctypes.c_uint),
-            ("dwExtraInfo", ctypes.c_void_p)
-        ]
-    
-    class INPUT_I(ctypes.Union):
-        _fields_ = [("ki", KEYBDINPUT), ("mi", MOUSEINPUT), ("hi", ctypes.c_ubyte * 8)]
-    
-    class INPUT(ctypes.Structure):
-        _anonymous_ = ("i",)
-        _fields_ = [("type", ctypes.c_uint), ("i", INPUT_I)]
-    
-    # 按下按键
     input_down = INPUT()
     input_down.type = INPUT_KEYBOARD
     input_down.ki.wVk = key_code
@@ -195,7 +175,6 @@ def send_key_press(key_code):
     input_down.ki.time = 0
     input_down.ki.dwExtraInfo = None
     
-    # 释放按键
     input_up = INPUT()
     input_up.type = INPUT_KEYBOARD
     input_up.ki.wVk = key_code
@@ -209,10 +188,35 @@ def send_key_press(key_code):
 
 
 def simulate_key(key_name):
-    """根据按键名称模拟键盘输入"""
-    key_name = key_name.upper()
-    if key_name in VK_KEYS:
-        send_key_press(VK_KEYS[key_name])
+    if ' + ' in key_name:
+        keys = [k.strip().upper() for k in key_name.split(' + ')]
+        for key in keys:
+            if key in VK_KEYS:
+                input_down = INPUT()
+                input_down.type = INPUT_KEYBOARD
+                input_down.ki.wVk = VK_KEYS[key]
+                input_down.ki.wScan = 0
+                input_down.ki.dwFlags = 0
+                input_down.ki.time = 0
+                input_down.ki.dwExtraInfo = None
+                
+                ctypes.windll.user32.SendInput(1, ctypes.byref(input_down), ctypes.sizeof(INPUT))
+        time.sleep(0.05)
+        for key in reversed(keys):
+            if key in VK_KEYS:
+                input_up = INPUT()
+                input_up.type = INPUT_KEYBOARD
+                input_up.ki.wVk = VK_KEYS[key]
+                input_up.ki.wScan = 0
+                input_up.ki.dwFlags = KEYEVENTF_KEYUP
+                input_up.ki.time = 0
+                input_up.ki.dwExtraInfo = None
+                
+                ctypes.windll.user32.SendInput(1, ctypes.byref(input_up), ctypes.sizeof(INPUT))
+    else:
+        key_name = key_name.upper()
+        if key_name in VK_KEYS:
+            send_key_press(VK_KEYS[key_name])
 
 
 def touch_long_press_start(x, y):
@@ -321,11 +325,119 @@ BUTTON_NAMES = {
     "ABS_LEFT_STICK": "左摇杆", "ABS_RIGHT_STICK": "右摇杆"
 }
 
-CONFIG_FILE = "gamepad_config.json"
+CONFIG_FILE = "手柄配置.json"
+
+KEY_DISPLAY_NAMES = {
+    "MEDIA_PREV": "上一曲",
+    "MEDIA_PLAY": "播放",
+    "MEDIA_STOP": "停止",
+    "MEDIA_NEXT": "下一曲",
+    "VOL_MUTE": "静音",
+    "VOL_UP": "音量+",
+    "VOL_DOWN": "音量-",
+    "ESC": "Esc",
+    "F1": "F1",
+    "F2": "F2",
+    "F3": "F3",
+    "F4": "F4",
+    "F5": "F5",
+    "F6": "F6",
+    "F7": "F7",
+    "F8": "F8",
+    "F9": "F9",
+    "F10": "F10",
+    "F11": "F11",
+    "F12": "F12",
+    "GRAVE": "`",
+    "1": "1",
+    "2": "2",
+    "3": "3",
+    "4": "4",
+    "5": "5",
+    "6": "6",
+    "7": "7",
+    "8": "8",
+    "9": "9",
+    "0": "0",
+    "MINUS": "-",
+    "EQUAL": "=",
+    "BACK": "Backspace",
+    "TAB": "Tab",
+    "Q": "Q",
+    "W": "W",
+    "E": "E",
+    "R": "R",
+    "T": "T",
+    "Y": "Y",
+    "U": "U",
+    "I": "I",
+    "O": "O",
+    "P": "P",
+    "LBRACKET": "[",
+    "RBRACKET": "]",
+    "BACKSLASH": "\\",
+    "CAPS": "Caps",
+    "A": "A",
+    "S": "S",
+    "D": "D",
+    "F": "F",
+    "G": "G",
+    "H": "H",
+    "J": "J",
+    "K": "K",
+    "L": "L",
+    "SEMICOLON": ";",
+    "QUOTE": "'",
+    "ENTER": "Enter",
+    "SHIFT": "Shift",
+    "Z": "Z",
+    "X": "X",
+    "C": "C",
+    "V": "V",
+    "B": "B",
+    "N": "N",
+    "M": "M",
+    "COMMA": ",",
+    "PERIOD": ".",
+    "SLASH": "/",
+    "CTRL": "Ctrl",
+    "WIN": "Win",
+    "ALT": "Alt",
+    "SPACE": "Space",
+    "MENU": "Menu",
+    "UP": "↑",
+    "DOWN": "↓",
+    "LEFT": "←",
+    "RIGHT": "→",
+    "PRTSC": "PrtSc",
+    "SCRLOCK": "ScrLk",
+    "PAUSE": "Pause",
+    "INS": "Ins",
+    "HOME": "Home",
+    "PGUP": "PgUp",
+    "DEL": "Del",
+    "END": "End",
+    "PGDN": "PgDn",
+    "NUMLOCK": "Num",
+    "NUM/": "/",
+    "NUM*": "*",
+    "NUM-": "-",
+    "NUM7": "7",
+    "NUM8": "8",
+    "NUM9": "9",
+    "NUM5": "5",
+    "NUM6": "6",
+    "NUM3": "3",
+    "NUM+": "+",
+    "NUM2": "2",
+    "NUM1": "1",
+    "NUM0": "0",
+    "NUM.": "."
+}
 
 
 def load_config():
-    default_config = {btn: {"screen_x": "", "screen_y": "", "window_x": "", "window_y": "", "func": "点击"} for btn in BUTTONS}
+    default_config = {btn: {"screen_x": "", "screen_y": "", "window_x": "", "window_y": "", "func": "点击", "key": ""} for btn in BUTTONS}
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             saved_config = json.load(f)
@@ -337,6 +449,8 @@ def load_config():
                     saved_config[btn]["screen_y"] = saved_config[btn]["y"]
                     saved_config[btn]["window_x"] = saved_config[btn]["x"]
                     saved_config[btn]["window_y"] = saved_config[btn]["y"]
+                if "key" not in saved_config[btn]:
+                    saved_config[btn]["key"] = ""
             return saved_config
     return default_config
 
@@ -347,229 +461,10 @@ def save_config(config):
     messagebox.showinfo("保存", "配置已保存！")
 
 
-class VirtualKeyboard(tk.Toplevel):
-    """虚拟键盘弹窗 - 类似xpadder的键盘布局"""
-    def __init__(self, parent, callback):
-        super().__init__(parent)
-        self.title("选择按键")
-        self.geometry("900x600")
-        self.resizable(False, False)
-        self.callback = callback
-        self.selected_key = None
-        
-        self.create_keyboard()
-        
-        # 模态窗口
-        self.transient(parent)
-        self.grab_set()
-        self.focus_set()
-        
-        # 居中显示
-        self.update_idletasks()
-        x = (self.winfo_screenwidth() - self.winfo_width()) // 2
-        y = (self.winfo_screenheight() - self.winfo_height()) // 2
-        self.geometry(f"+{x}+{y}")
-    
-    def create_keyboard(self):
-        """创建完整键盘布局"""
-        # 创建画布和滚动条
-        canvas = tk.Canvas(self)
-        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
-        self.main_frame = ttk.Frame(canvas)
-        
-        self.main_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=self.main_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        
-        # 标题
-        ttk.Label(self.main_frame, text="点击选择要模拟的按键", font=("黑体", 14, "bold")).pack(pady=10)
-        
-        # 创建所有按键区域
-        self.create_media_keys()
-        self.create_main_keyboard()
-        self.create_numpad()
-        self.create_function_keys()
-        
-        # 取消按钮
-        ttk.Button(self.main_frame, text="取消", command=self.destroy).pack(pady=15)
-    
-    def create_key_button(self, parent, text, key_code, width=6, bg=None):
-        """创建按键按钮"""
-        btn = tk.Button(
-            parent,
-            text=text,
-            width=width,
-            height=1,
-            font=("Arial", 8, "bold"),
-            bg=bg or "#f0f0f0",
-            command=lambda k=key_code: self.on_key_click(k)
-        )
-        return btn
-    
-    def create_media_keys(self):
-        """创建媒体控制键区域（顶部）"""
-        media_frame = ttk.LabelFrame(self.main_frame, text="媒体控制键", padding=5)
-        media_frame.pack(fill="x", padx=10, pady=5)
-        
-        # 第一行：媒体播放控制
-        row1 = ttk.Frame(media_frame)
-        row1.pack(pady=2)
-        
-        self.create_key_button(row1, "上一首", "MEDIA_PREV", 8).pack(side="left", padx=2)
-        self.create_key_button(row1, "播放/暂停", "MEDIA_PLAY", 10).pack(side="left", padx=2)
-        self.create_key_button(row1, "停止", "MEDIA_STOP", 8).pack(side="left", padx=2)
-        self.create_key_button(row1, "下一首", "MEDIA_NEXT", 8).pack(side="left", padx=2)
-        
-        # 第二行：音量控制
-        row2 = ttk.Frame(media_frame)
-        row2.pack(pady=2)
-        
-        self.create_key_button(row2, "静音", "VOL_MUTE", 8).pack(side="left", padx=2)
-        self.create_key_button(row2, "音量-", "VOL_DOWN", 8).pack(side="left", padx=2)
-        self.create_key_button(row2, "音量+", "VOL_UP", 8).pack(side="left", padx=2)
-        
-        # 第三行：浏览器控制
-        row3 = ttk.Frame(media_frame)
-        row3.pack(pady=2)
-        
-        self.create_key_button(row3, "后退", "BROWSER_BACK", 8).pack(side="left", padx=2)
-        self.create_key_button(row3, "前进", "BROWSER_FORWARD", 8).pack(side="left", padx=2)
-        self.create_key_button(row3, "刷新", "BROWSER_REFRESH", 8).pack(side="left", padx=2)
-        self.create_key_button(row3, "停止", "BROWSER_STOP", 8).pack(side="left", padx=2)
-        self.create_key_button(row3, "搜索", "BROWSER_SEARCH", 8).pack(side="left", padx=2)
-        self.create_key_button(row3, "主页", "BROWSER_HOME", 8).pack(side="left", padx=2)
-    
-    def create_main_keyboard(self):
-        """创建主键盘区域"""
-        main_frame = ttk.LabelFrame(self.main_frame, text="主键盘", padding=5)
-        main_frame.pack(fill="x", padx=10, pady=5)
-        
-        # 键盘布局
-        keyboard_rows = [
-            # 第一行：ESC和F键
-            [
-                ("ESC", "ESC", 6),
-                ("F1", "F1", 6), ("F2", "F2", 6), ("F3", "F3", 6), ("F4", "F4", 6),
-                ("F5", "F5", 6), ("F6", "F6", 6), ("F7", "F7", 6), ("F8", "F8", 6),
-                ("F9", "F9", 6), ("F10", "F10", 6), ("F11", "F11", 6), ("F12", "F12", 6),
-            ],
-            # 第二行：数字键
-            [
-                ("`", "GRAVE", 5), ("1", "1", 5), ("2", "2", 5), ("3", "3", 5), ("4", "4", 5),
-                ("5", "5", 5), ("6", "6", 5), ("7", "7", 5), ("8", "8", 5), ("9", "9", 5),
-                ("0", "0", 5), ("-", "MINUS", 5), ("=", "EQUAL", 5), ("Back", "BACK", 8),
-            ],
-            # 第三行：QWERTY
-            [
-                ("Tab", "TAB", 8), ("Q", "Q", 5), ("W", "W", 5), ("E", "E", 5), ("R", "R", 5),
-                ("T", "T", 5), ("Y", "Y", 5), ("U", "U", 5), ("I", "I", 5), ("O", "O", 5),
-                ("P", "P", 5), ("[", "LBRACKET", 5), ("]", "RBRACKET", 5), ("\\", "BACKSLASH", 7),
-            ],
-            # 第四行：ASDF
-            [
-                ("Caps", "CAPS", 9), ("A", "A", 5), ("S", "S", 5), ("D", "D", 5), ("F", "F", 5),
-                ("G", "G", 5), ("H", "H", 5), ("J", "J", 5), ("K", "K", 5), ("L", "L", 5),
-                (";", "SEMICOLON", 5), ("'", "QUOTE", 5), ("Enter", "ENTER", 11),
-            ],
-            # 第五行：ZXCV
-            [
-                ("Shift", "SHIFT", 11), ("Z", "Z", 5), ("X", "X", 5), ("C", "C", 5), ("V", "V", 5),
-                ("B", "B", 5), ("N", "N", 5), ("M", "M", 5), (",", "COMMA", 5), (".", "PERIOD", 5),
-                ("/", "SLASH", 5), ("Shift", "SHIFT", 13),
-            ],
-            # 第六行：控制键
-            [
-                ("Ctrl", "CTRL", 8), ("Win", "WIN", 7), ("Alt", "ALT", 7),
-                ("Space", "SPACE", 30),
-                ("Alt", "ALT", 7), ("Win", "WIN", 7), ("Menu", "MENU", 7), ("Ctrl", "CTRL", 8),
-            ],
-        ]
-        
-        for row in keyboard_rows:
-            row_frame = ttk.Frame(main_frame)
-            row_frame.pack(pady=1)
-            for text, key, width in row:
-                self.create_key_button(row_frame, text, key, width).pack(side="left", padx=1)
-    
-    def create_numpad(self):
-        """创建小键盘区域"""
-        numpad_frame = ttk.LabelFrame(self.main_frame, text="小键盘", padding=5)
-        numpad_frame.pack(fill="x", padx=10, pady=5)
-        
-        # 小键盘布局
-        numpad_layout = [
-            [("NumLk", "NUMLOCK", 8), ("/", "NUM/", 8), ("*", "NUM*", 8), ("-", "NUM-", 8)],
-            [("7", "NUM7", 8), ("8", "NUM8", 8), ("9", "NUM9", 8), ("+", "NUM+", 8)],
-            [("4", "NUM4", 8), ("5", "NUM5", 8), ("6", "NUM6", 8), ("Enter", "ENTER", 8)],
-            [("1", "NUM1", 8), ("2", "NUM2", 8), ("3", "NUM3", 8)],
-            [("0", "NUM0", 17), (".", "NUM.", 8)],
-        ]
-        
-        for row in numpad_layout:
-            row_frame = ttk.Frame(numpad_frame)
-            row_frame.pack(pady=1)
-            for text, key, width in row:
-                self.create_key_button(row_frame, text, key, width).pack(side="left", padx=1)
-    
-    def create_function_keys(self):
-        """创建功能键和编辑键区域"""
-        func_frame = ttk.LabelFrame(self.main_frame, text="功能键和编辑键", padding=5)
-        func_frame.pack(fill="x", padx=10, pady=5)
-        
-        # 编辑键区域
-        edit_frame = ttk.Frame(func_frame)
-        edit_frame.pack(pady=2)
-        
-        # 第一行：Print Screen, Scroll Lock, Pause
-        row1 = ttk.Frame(edit_frame)
-        row1.pack(pady=2)
-        self.create_key_button(row1, "PrtSc", "PRTSC", 8).pack(side="left", padx=2)
-        self.create_key_button(row1, "ScrLk", "SCRLOCK", 8).pack(side="left", padx=2)
-        self.create_key_button(row1, "Pause", "PAUSE", 8).pack(side="left", padx=2)
-        
-        # 第二行：Insert, Home, Page Up
-        row2 = ttk.Frame(edit_frame)
-        row2.pack(pady=2)
-        self.create_key_button(row2, "Ins", "INS", 8).pack(side="left", padx=2)
-        self.create_key_button(row2, "Home", "HOME", 8).pack(side="left", padx=2)
-        self.create_key_button(row2, "PgUp", "PGUP", 8).pack(side="left", padx=2)
-        
-        # 第三行：Delete, End, Page Down
-        row3 = ttk.Frame(edit_frame)
-        row3.pack(pady=2)
-        self.create_key_button(row3, "Del", "DEL", 8).pack(side="left", padx=2)
-        self.create_key_button(row3, "End", "END", 8).pack(side="left", padx=2)
-        self.create_key_button(row3, "PgDn", "PGDN", 8).pack(side="left", padx=2)
-        
-        # 方向键区域
-        arrow_frame = ttk.Frame(func_frame)
-        arrow_frame.pack(pady=5)
-        
-        # 上方向键
-        up_frame = ttk.Frame(arrow_frame)
-        up_frame.pack()
-        self.create_key_button(up_frame, "↑", "UP", 8).pack()
-        
-        # 下方向键行
-        down_frame = ttk.Frame(arrow_frame)
-        down_frame.pack()
-        self.create_key_button(down_frame, "←", "LEFT", 8).pack(side="left", padx=2)
-        self.create_key_button(down_frame, "↓", "DOWN", 8).pack(side="left", padx=2)
-        self.create_key_button(down_frame, "→", "RIGHT", 8).pack(side="left", padx=2)
-    
-    def on_key_click(self, key):
-        """按键点击处理"""
-        self.selected_key = key
-        if self.callback:
-            self.callback(key)
-        self.destroy()
+
+
+
+
 
 
 class App(tk.Tk):
@@ -589,8 +484,6 @@ class App(tk.Tk):
         self.stick_mouse_running = False
         self.last_left_stick_state = {"x": 0, "y": 0, "active": False}
         self.last_right_stick_state = {"x": 0, "y": 0, "active": False}
-
-        ttk.Label(self, text="手柄按键 → 触屏映射", font=("黑体", 16, "bold")).pack(pady=10)
 
         main_frame = ttk.Frame(self)
         main_frame.pack(fill="both", expand=True, padx=10, pady=5)
@@ -707,9 +600,20 @@ class App(tk.Tk):
                 func_combo = ttk.Combobox(scroll_frame, values=["点击", "长按", "上滑", "下滑", "按键"], width=8, textvariable=func_var, state="readonly")
                 func_combo.grid(row=i, column=3, padx=5, pady=2)
                 
-                # 键盘按键选择按钮
                 key_var = tk.StringVar(value=self.gamepad_config[btn].get("key", ""))
-                key_btn = tk.Button(scroll_frame, text="选按键", width=6, 
+                current_key = key_var.get()
+                if ' + ' in current_key:
+                    key_text = "组合键"
+                elif current_key:
+                    if ' + ' in current_key:
+                        keys = [k.strip() for k in current_key.split(' + ')]
+                        friendly_keys = [KEY_DISPLAY_NAMES.get(k, k) or k for k in keys]
+                        key_text = " + ".join(friendly_keys)
+                    else:
+                        key_text = KEY_DISPLAY_NAMES.get(current_key, current_key) or current_key
+                else:
+                    key_text = "选按键"
+                key_btn = tk.Button(scroll_frame, text=key_text, width=6, 
                                    command=lambda b=btn, fv=func_var, kv=key_var: self.select_keyboard_key(b, fv, kv))
                 key_btn.grid(row=i, column=4, padx=2, pady=2)
                 
@@ -829,7 +733,6 @@ class App(tk.Tk):
                 "func": func.get() if func else "点击"
             }
             
-            # 保存按键配置（如果有）
             if len(entry_data) > 3:
                 key_var = entry_data[3]
                 config_item["key"] = key_var.get()
@@ -840,16 +743,45 @@ class App(tk.Tk):
         self.config_info_label.config(text="配置: 已保存", foreground="green")
 
     def select_keyboard_key(self, btn, func_var, key_var):
-        """打开虚拟键盘选择按键"""
         if func_var.get() != "按键":
             messagebox.showinfo("提示", "请先选择功能为'按键'")
             return
         
+        current_key = key_var.get()
+        
         def on_key_selected(key):
             key_var.set(key)
-            messagebox.showinfo("选择成功", f"已选择按键: {key}")
+            if ' + ' in key:
+                self.entries[btn][4].config(text="组合键")
+            else:
+                friendly_name = KEY_DISPLAY_NAMES.get(key, key)
+                self.entries[btn][4].config(text=friendly_name)
+            if ' + ' in key:
+                keys = [k.strip() for k in key.split(' + ')]
+                friendly_keys = [KEY_DISPLAY_NAMES.get(k, k) or k for k in keys]
+                friendly_key_text = " + ".join(friendly_keys)
+            else:
+                friendly_key_text = KEY_DISPLAY_NAMES.get(key, key) or key
+            messagebox.showinfo("选择成功", f"已选择按键: {friendly_key_text}")
         
-        VirtualKeyboard(self, on_key_selected)
+        VirtualKeyboard(self, on_key_selected, current_key)
+    
+    def load_key_scheme(self):
+        import os
+        scheme_file = "按键方案.json"
+        if os.path.exists(scheme_file):
+            try:
+                with open(scheme_file, "r", encoding="utf-8") as f:
+                    scheme = json.load(f)
+                combo_text = scheme.get("combo_text", "")
+                if combo_text:
+                    messagebox.showinfo("加载成功", f"已加载按键方案: {combo_text}")
+                    return combo_text
+            except Exception as e:
+                messagebox.showerror("加载失败", f"无法加载按键方案: {e}")
+        else:
+            messagebox.showinfo("提示", "未找到按键方案文件")
+        return ""
 
     def start_gamepad_listener(self):
         self.listening = True
