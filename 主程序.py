@@ -1448,6 +1448,8 @@ class App(tk.Tk):
         self.stop_mapping_btn.config(state="normal")
         self.status_label.config(text="状态: 映射已启动", foreground="green")
         self.mapping_status_label.config(text="映射: 已启动", foreground="green")
+        
+        self.after(500, self.minimize_to_tray)
 
     def stop_mapping(self):
         self.mapping_mode = False
@@ -1460,21 +1462,44 @@ class App(tk.Tk):
         self.status_label.config(text="状态: 映射已停止", foreground="blue")
         self.mapping_status_label.config(text="映射: 未启动", foreground="gray")
 
+    def minimize_to_tray(self):
+        self.withdraw()
+        if not hasattr(self, 'tray_icon') or not self.tray_icon:
+            self.create_tray_icon()
+
     def create_tray_icon(self):
         image = Image.new('RGB', (64, 64), color='blue')
         draw = ImageDraw.Draw(image)
         draw.rectangle([16, 16, 48, 48], fill='white')
+        
+        def get_mapping_menu():
+            if self.mapping_mode:
+                return pystray.MenuItem("停止映射", self.tray_stop_mapping)
+            else:
+                return pystray.MenuItem("启动映射", self.tray_start_mapping)
+        
         menu = pystray.Menu(
+            get_mapping_menu(),
             pystray.MenuItem("显示窗口", self.show_window),
             pystray.MenuItem("退出", self.exit_app)
         )
         self.tray_icon = pystray.Icon("gamepad_mapper", image, "手柄触屏映射", menu)
-        self.tray_icon.run()
+        
+        import threading
+        self.tray_thread = threading.Thread(target=self.tray_icon.run, daemon=True)
+        self.tray_thread.start()
+
+    def tray_start_mapping(self):
+        self.after(0, self.start_mapping)
+
+    def tray_stop_mapping(self):
+        self.after(0, self.stop_mapping)
 
     def show_window(self):
         self.deiconify()
         self.lift()
         self.focus_force()
+        self.update_idletasks()
 
     def exit_app(self):
         self.listening = False
