@@ -697,9 +697,11 @@ class App(tk.Tk):
         self.status_label.config(text="状态: 正在检测手柄...", foreground="blue")
         try:
             events = get_gamepad()
+            self.gamepad_status_label.config(text="手柄: 已连接", foreground="green")
             self.status_label.config(text="状态: 手柄已连接", foreground="green")
             messagebox.showinfo("手柄检测", "手柄检测成功！请按下手柄按键测试")
         except Exception as e:
+            self.gamepad_status_label.config(text="手柄: 未连接", foreground="red")
             self.status_label.config(text="状态: 未检测到手柄", foreground="red")
             messagebox.showerror("手柄检测失败", f"无法检测到手柄错误信息: {e}")
 
