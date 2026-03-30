@@ -1336,7 +1336,6 @@ class App(tk.Tk):
     def start_coordinate_capture(self, btn):
         try:
             self.current_capture_btn = btn
-            self.status_label.config(text=f"状态: 请点击目标位置 ({BUTTON_NAMES.get(btn, btn)})", foreground="blue")
             
             target_window = self.window_var.get()
             
@@ -1361,15 +1360,21 @@ class App(tk.Tk):
                     ctypes.windll.user32.AttachThreadInput(window_thread, current_thread, True)
                     ctypes.windll.user32.SetForegroundWindow(hwnd)
                     ctypes.windll.user32.AttachThreadInput(window_thread, current_thread, False)
-                    time.sleep(0.5)
+                    time.sleep(0.3)
                 else:
                     messagebox.showwarning("窗口未找到", f"目标窗口 '{target_window}' 未运行或标题不正确！")
                     self.status_label.config(text="状态: 正在监听手柄按键...", foreground="green")
                     return
             
+            self.status_label.config(text=f"状态: 请在目标位置再次点击鼠标 ({BUTTON_NAMES.get(btn, btn)})", foreground="blue")
+            
             def mouse_listener_thread():
                 import ctypes
                 from ctypes import wintypes
+                
+                while ctypes.windll.user32.GetAsyncKeyState(0x01) & 0x8000:
+                    time.sleep(0.01)
+                
                 while True:
                     if ctypes.windll.user32.GetAsyncKeyState(0x01) & 0x8000:
                         point = wintypes.POINT()
@@ -1402,7 +1407,9 @@ class App(tk.Tk):
                     window_y = max(0, window_y)
             
             if self.current_capture_btn in self.entries:
-                screen_entry, window_entry, _ = self.entries[self.current_capture_btn]
+                entry_data = self.entries[self.current_capture_btn]
+                screen_entry = entry_data[0]
+                window_entry = entry_data[1]
                 screen_entry.delete(0, 'end')
                 screen_entry.insert(0, f"{x},{y}")
                 window_entry.delete(0, 'end')
