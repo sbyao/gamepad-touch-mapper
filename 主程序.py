@@ -804,13 +804,19 @@ class App(tk.Tk):
             try:
                 if not connected:
                     try:
-                        get_gamepad()
-                        connected = True
-                        self.gamepad_status_label.config(text="手柄: 已连接", foreground="green")
+                        import inputs
+                        import importlib
+                        importlib.reload(inputs)
+                        from inputs import devices
+                        gamepads = devices.gamepads
+                        if gamepads:
+                            get_gamepad()
+                            connected = True
+                            self.gamepad_status_label.config(text="手柄: 已连接", foreground="green")
+                        else:
+                            time.sleep(1)
+                            continue
                     except:
-                        if connected:
-                            connected = False
-                            self.gamepad_status_label.config(text="手柄: 未连接", foreground="red")
                         time.sleep(1)
                         continue
                 
@@ -891,8 +897,9 @@ class App(tk.Tk):
                 
                 time.sleep(0.005)
             except Exception as e:
-                connected = False
-                self.gamepad_status_label.config(text="手柄: 未连接", foreground="red")
+                if connected:
+                    connected = False
+                    self.gamepad_status_label.config(text="手柄: 未连接", foreground="red")
                 time.sleep(1)
 
     def parse_event(self, event):
