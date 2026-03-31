@@ -6,7 +6,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[('虚拟键盘网格布局.py', '.')],
-    hiddenimports=['inputs', 'PIL', 'pystray', 'tkinter', 'tkinter.ttk', 'tkinter.messagebox'],
+    hiddenimports=[],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -35,4 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='NONE',
 )

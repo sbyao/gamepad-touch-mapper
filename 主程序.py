@@ -1478,6 +1478,7 @@ class App(tk.Tk):
 
     def stop_mapping(self):
         self.mapping_mode = False
+        self.listening = False
         self.stop_stick_mouse_loop()
         if hasattr(self, 'tray_icon'):
             self.tray_icon.stop()
