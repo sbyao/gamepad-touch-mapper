@@ -20,9 +20,11 @@ wheels/
 .installed.cfg
 *.egg
 
-# 配置文件（包含用户数据）
+# 运行时生成的配置文件（包含用户数据）
 手柄配置.json
 按键方案.json
+target_window.json
+target_*_window.json
 
 # IDE
 .vscode/
@@ -35,3 +37,6 @@ wheels/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# 历史代码备份
+历史代码/
