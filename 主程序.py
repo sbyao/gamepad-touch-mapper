@@ -723,22 +723,17 @@ class App(tk.Tk):
                 if len(screen_coords) == 2:
                     screen_x = screen_coords[0].strip()
                     screen_y = screen_coords[1].strip()
-                else:
-                    screen_x = "0"
-                    screen_y = "0"
+                    if screen_x and screen_y and screen_x != "0" and screen_y != "0":
+                        config_item["screen_x"] = screen_x
+                        config_item["screen_y"] = screen_y
                 
                 window_coords = window_entry.get().split(',')
                 if len(window_coords) == 2:
                     window_x = window_coords[0].strip()
                     window_y = window_coords[1].strip()
-                else:
-                    window_x = "0"
-                    window_y = "0"
-                
-                config_item["screen_x"] = screen_x
-                config_item["screen_y"] = screen_y
-                config_item["window_x"] = window_x
-                config_item["window_y"] = window_y
+                    if window_x and window_y and window_x != "0" and window_y != "0":
+                        config_item["window_x"] = window_x
+                        config_item["window_y"] = window_y
             
             new_config[btn] = config_item
         save_config(new_config)
@@ -1007,21 +1002,22 @@ class App(tk.Tk):
         target_window = self.window_var.get()
         
         if target_window != "整个屏幕":
-            x, y = cfg.get("window_x", "0"), cfg.get("window_y", "0")
-            if not x or not y: 
+            x, y = cfg.get("window_x", ""), cfg.get("window_y", "")
+            if not x or not y or x == "0" or y == "0":
                 return
             try:
                 x, y = int(x), int(y)
                 window_rect = self.get_window_rect(target_window)
-                if window_rect:
-                    left, top, _, _ = window_rect
-                    x = left + x
-                    y = top + y
+                if not window_rect:
+                    return
+                left, top, _, _ = window_rect
+                x = left + x
+                y = top + y
             except:
                 return
         else:
-            x, y = cfg.get("screen_x", "0"), cfg.get("screen_y", "0")
-            if not x or not y: 
+            x, y = cfg.get("screen_x", ""), cfg.get("screen_y", "")
+            if not x or not y or x == "0" or y == "0":
                 return
             try:
                 x, y = int(x), int(y)
@@ -1041,10 +1037,10 @@ class App(tk.Tk):
             pass
 
     def handle_stick_as_analog(self, stick_name, x_norm, y_norm, cfg):
-        screen_x = cfg.get("screen_x", "0")
-        screen_y = cfg.get("screen_y", "0")
+        screen_x = cfg.get("screen_x", "")
+        screen_y = cfg.get("screen_y", "")
         
-        if not screen_x or not screen_y:
+        if not screen_x or not screen_y or screen_x == "0" or screen_y == "0":
             return
         
         try:
@@ -1214,28 +1210,30 @@ class App(tk.Tk):
         target_window = self.window_var.get()
         
         if target_window != "整个屏幕":
-            x, y = cfg.get("window_x", "0"), cfg.get("window_y", "0")
-            if not x or not y: return
+            x, y = cfg.get("window_x", ""), cfg.get("window_y", "")
+            if not x or not y or x == "0" or y == "0": return
             try:
                 x, y = int(x), int(y)
                 
                 import ctypes
                 hwnd = ctypes.windll.user32.FindWindowW(None, target_window)
                 if not hwnd: hwnd = self.find_window_by_partial_title(target_window)
-                if hwnd:
-                    ctypes.windll.user32.SetForegroundWindow(hwnd)
-                    time.sleep(0.1)
-                    
-                    window_rect = self.get_window_rect(target_window)
-                    if window_rect:
-                        left, top, _, _ = window_rect
-                        x = left + x
-                        y = top + y
+                if not hwnd: return
+                
+                ctypes.windll.user32.SetForegroundWindow(hwnd)
+                time.sleep(0.1)
+                
+                window_rect = self.get_window_rect(target_window)
+                if not window_rect: return
+                
+                left, top, _, _ = window_rect
+                x = left + x
+                y = top + y
             except:
                 return
         else:
-            x, y = cfg.get("screen_x", "0"), cfg.get("screen_y", "0")
-            if not x or not y: return
+            x, y = cfg.get("screen_x", ""), cfg.get("screen_y", "")
+            if not x or not y or x == "0" or y == "0": return
             try:
                 x, y = int(x), int(y)
             except:
@@ -1264,28 +1262,30 @@ class App(tk.Tk):
         target_window = self.window_var.get()
         
         if target_window != "整个屏幕":
-            x, y = cfg.get("window_x", "0"), cfg.get("window_y", "0")
-            if not x or not y: return
+            x, y = cfg.get("window_x", ""), cfg.get("window_y", "")
+            if not x or not y or x == "0" or y == "0": return
             try:
                 x, y = int(x), int(y)
                 
                 import ctypes
                 hwnd = ctypes.windll.user32.FindWindowW(None, target_window)
                 if not hwnd: hwnd = self.find_window_by_partial_title(target_window)
-                if hwnd:
-                    ctypes.windll.user32.SetForegroundWindow(hwnd)
-                    time.sleep(0.1)
-                    
-                    window_rect = self.get_window_rect(target_window)
-                    if window_rect:
-                        left, top, _, _ = window_rect
-                        x = left + x
-                        y = top + y
+                if not hwnd: return
+                
+                ctypes.windll.user32.SetForegroundWindow(hwnd)
+                time.sleep(0.1)
+                
+                window_rect = self.get_window_rect(target_window)
+                if not window_rect: return
+                
+                left, top, _, _ = window_rect
+                x = left + x
+                y = top + y
             except:
                 return
         else:
-            x, y = cfg.get("screen_x", "0"), cfg.get("screen_y", "0")
-            if not x or not y: return
+            x, y = cfg.get("screen_x", ""), cfg.get("screen_y", "")
+            if not x or not y or x == "0" or y == "0": return
             try:
                 x, y = int(x), int(y)
             except:
