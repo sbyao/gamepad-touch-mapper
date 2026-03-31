@@ -710,34 +710,35 @@ class App(tk.Tk):
         for btn, entry_data in self.entries.items():
             screen_entry, window_entry = entry_data[0], entry_data[1]
             func = entry_data[2] if len(entry_data) > 2 else None
+            func_value = func.get() if func else "点击"
             
-            screen_coords = screen_entry.get().split(',')
-            if len(screen_coords) == 2:
-                screen_x = screen_coords[0].strip()
-                screen_y = screen_coords[1].strip()
+            config_item = {"func": func_value}
+            
+            if func_value == "按键":
+                if len(entry_data) > 3:
+                    key_var = entry_data[3]
+                    config_item["key"] = key_var.get()
             else:
-                screen_x = "0"
-                screen_y = "0"
-            
-            window_coords = window_entry.get().split(',')
-            if len(window_coords) == 2:
-                window_x = window_coords[0].strip()
-                window_y = window_coords[1].strip()
-            else:
-                window_x = "0"
-                window_y = "0"
-            
-            config_item = {
-                "screen_x": screen_x, 
-                "screen_y": screen_y, 
-                "window_x": window_x, 
-                "window_y": window_y, 
-                "func": func.get() if func else "点击"
-            }
-            
-            if len(entry_data) > 3:
-                key_var = entry_data[3]
-                config_item["key"] = key_var.get()
+                screen_coords = screen_entry.get().split(',')
+                if len(screen_coords) == 2:
+                    screen_x = screen_coords[0].strip()
+                    screen_y = screen_coords[1].strip()
+                else:
+                    screen_x = "0"
+                    screen_y = "0"
+                
+                window_coords = window_entry.get().split(',')
+                if len(window_coords) == 2:
+                    window_x = window_coords[0].strip()
+                    window_y = window_coords[1].strip()
+                else:
+                    window_x = "0"
+                    window_y = "0"
+                
+                config_item["screen_x"] = screen_x
+                config_item["screen_y"] = screen_y
+                config_item["window_x"] = window_x
+                config_item["window_y"] = window_y
             
             new_config[btn] = config_item
         save_config(new_config)
